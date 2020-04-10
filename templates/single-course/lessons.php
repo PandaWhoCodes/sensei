@@ -67,6 +67,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 					the_excerpt();
 					?>
 
+					<?php
+					/**
+					 * Adding a read more tag at the end of each lesson.
+					 */
+						echo '<h3><a href="'.esc_url( get_permalink( $lesson_id )).'">Read more</a></h3>';
+					?>
 				</section>
 
 				<?php

@@ -2806,7 +2806,7 @@ class Sensei_Course {
 		?>
 
 			<header>
-				<h2>
+				<h2 style="font-size: 2.3em;">
 					<?php echo esc_html( $title ); ?>
 				</h2>
 			</header>
@@ -3159,7 +3159,7 @@ class Sensei_Course {
 		?>
 		<header>
 
-			<h1>
+			<h1 style="font-size: 2.7em;">
 
 				<?php
 				/**
