@@ -7,29 +7,27 @@
  * @author      Automattic
  * @package     Sensei
  * @category    Templates
- * @version     3.0.0
+ * @version     2.0.0
  */
 ?>
 
 <?php get_sensei_header(); ?>
 
-	<div class="sensei-archive-controls">
-		<?php
+	<?php
 
-			/**
-			 * This action before course archive loop. This hook fires within the archive-course.php
-			 * It fires even if the current archive has no posts.
-			 *
-			 * @since 1.9.0
-			 *
-			 * @hooked Sensei_Course::course_archive_sorting 20
-			 * @hooked Sensei_Course::course_archive_filters 20
-			 * @hooked Sensei_Templates::deprecated_archive_hook 80
-			 */
-			do_action( 'sensei_archive_before_course_loop' );
+		/**
+		 * This action before course archive loop. This hook fires within the archive-course.php
+		 * It fires even if the current archive has no posts.
+		 *
+		 * @since 1.9.0
+		 *
+		 * @hooked Sensei_Course::course_archive_sorting 20
+		 * @hooked Sensei_Course::course_archive_filters 20
+		 * @hooked Sensei_Templates::deprecated_archive_hook 80
+		 */
+		do_action( 'sensei_archive_before_course_loop' );
 
-		?>
-	</div>
+	?>
 
 	<?php if ( have_posts() ) : ?>
 

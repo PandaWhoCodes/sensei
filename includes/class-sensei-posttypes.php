@@ -14,8 +14,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  */
 class Sensei_PostTypes {
-	const LEARNER_TAXONOMY_NAME = 'sensei_learner';
-
 	public $token;
 	public $slider_labels;
 	public $role_caps;
@@ -67,7 +65,6 @@ class Sensei_PostTypes {
 		add_action( 'init', array( $this, 'setup_sensei_message_post_type' ), 100 );
 
 		// Setup Taxonomies
-		add_action( 'init', array( $this, 'setup_learner_taxonomy' ), 100 );
 		add_action( 'init', array( $this, 'setup_course_category_taxonomy' ), 100 );
 		add_action( 'init', array( $this, 'setup_quiz_type_taxonomy' ), 100 );
 		add_action( 'init', array( $this, 'setup_question_type_taxonomy' ), 100 );
@@ -83,10 +80,10 @@ class Sensei_PostTypes {
 			'messages' => 'Messages',
 		);
 		$this->load_posttype_objects( $default_post_types );
-		$this->set_role_cap_defaults( $default_post_types );
 
 		// Admin functions
-		if ( is_admin() ) {
+		if ( is_admin() || defined( 'WP_CLI' ) && WP_CLI ) {
+			$this->set_role_cap_defaults( $default_post_types );
 			global $pagenow;
 			if ( ( $pagenow == 'post.php' || $pagenow == 'post-new.php' ) ) {
 				add_filter( 'enter_title_here', array( $this, 'enter_title_here' ), 10 );
@@ -455,22 +452,6 @@ class Sensei_PostTypes {
 			register_post_type( 'sensei_message', apply_filters( 'sensei_register_post_type_sensei_message', $args ) );
 		}
 	} // End setup_sensei_message_post_type()
-
-	/**
-	 * Registers the learner taxonomy.
-	 *
-	 * @access private
-	 */
-	public function setup_learner_taxonomy() {
-		register_taxonomy(
-			self::LEARNER_TAXONOMY_NAME,
-			'course',
-			[
-				'public'  => false,
-				'show_ui' => false,
-			]
-		);
-	}
 
 	/**
 	 * Setup the "course category" taxonomy, linked to the "course" post type.

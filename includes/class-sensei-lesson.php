@@ -2130,10 +2130,6 @@ class Sensei_Lesson {
 		$allowed_post_types      = apply_filters( 'sensei_scripts_allowed_post_types', array( 'lesson', 'question' ) );
 		$allowed_post_type_pages = apply_filters( 'sensei_scripts_allowed_post_type_pages', array( 'post-new.php', 'post.php' ) );
 
-		if ( 'edit.php' === $hook && 'lesson' === $post_type ) {
-			$this->enqueue_lesson_edit_scripts();
-		}
-
 		if ( ! isset( $post_type )
 			|| ! isset( $hook )
 			|| ! in_array( $post_type, $allowed_post_types )
@@ -2149,6 +2145,11 @@ class Sensei_Lesson {
 		wp_enqueue_script( 'sensei-lesson-metadata', Sensei()->plugin_url . 'assets/js/lesson-metadata' . $suffix . '.js', array( 'jquery', 'sensei-core-select2', 'jquery-ui-sortable' ), Sensei()->version, true );
 		wp_enqueue_script( 'sensei-lesson-chosen', Sensei()->plugin_url . 'assets/chosen/chosen.jquery' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
 		wp_enqueue_script( 'sensei-chosen-ajax', Sensei()->plugin_url . 'assets/chosen/ajax-chosen.jquery' . $suffix . '.js', array( 'jquery', 'sensei-lesson-chosen' ), Sensei()->version, true );
+
+		// Load the bulk edit screen script.
+		if ( 'edit.php' == $hook && 'lesson' == $_GET['post_type'] ) {
+			wp_enqueue_script( 'sensei-lessons-bulk-edit', Sensei()->plugin_url . 'assets/js/admin/lesson-bulk-edit' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
+		}
 
 		// Localise script.
 		$translation_strings = array(
@@ -2179,21 +2180,6 @@ class Sensei_Lesson {
 		if ( is_rtl() ) {
 			wp_enqueue_script( 'sensei-chosen-rtl', Sensei()->plugin_url . 'assets/chosen/chosen-rtl' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
 		}
-	}
-	/**
-	 * Load scripts for the Lessons admin page.
-	 *
-	 * @access private
-	 * @since  3.0.0
-	 * @return void
-	 */
-	private function enqueue_lesson_edit_scripts() {
-		// Load the quick edit screen script.
-		$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-		wp_enqueue_script( 'sensei-lesson-quick-edit', Sensei()->plugin_url . 'assets/js/admin/lesson-quick-edit' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
-
-		// Load the bulk edit screen script.
-		wp_enqueue_script( 'sensei-lessons-bulk-edit', Sensei()->plugin_url . 'assets/js/admin/lesson-bulk-edit' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
 	}
 
 	/**
@@ -2261,10 +2247,8 @@ class Sensei_Lesson {
 			case 'lesson-prerequisite':
 				$lesson_prerequisite_id = get_post_meta( $id, '_lesson_prerequisite', true );
 				if ( 0 < absint( $lesson_prerequisite_id ) ) {
-					$lesson_prerequisite_post = get_post( $lesson_prerequisite_id );
 					// translators: Placeholder is the title of the prerequisite lesson.
 					echo '<a href="' . esc_url( get_edit_post_link( absint( $lesson_prerequisite_id ) ) ) . '" title="' . esc_attr( sprintf( __( 'Edit %s', 'sensei-lms' ), get_the_title( absint( $lesson_prerequisite_id ) ) ) ) . '">' . esc_html( get_the_title( absint( $lesson_prerequisite_id ) ) ) . '</a>';
-					_post_states( $lesson_prerequisite_post );
 				} // End If Statement
 				break;
 			default:
@@ -3435,7 +3419,7 @@ class Sensei_Lesson {
 
 			// if $add_p_tags true wrap with <p> else return the excerpt as is
 			$html = $add_p_tags ? wp_kses_post( wpautop( $excerpt ) ) : esc_html( $excerpt );
-
+	
 		}
 		return apply_filters( 'sensei_lesson_excerpt', $html );
 
@@ -3742,6 +3726,9 @@ class Sensei_Lesson {
 		if ( 'lesson-course' != $column_name ) {
 			return;
 		}
+		// load the script
+		$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
+		wp_enqueue_script( 'sensei-lesson-quick-edit', Sensei()->plugin_url . 'assets/js/admin/lesson-quick-edit' . $suffix . '.js', array( 'jquery' ), Sensei()->version, true );
 
 		// setup the values for all meta fields
 		$data = array();
@@ -3765,7 +3752,7 @@ class Sensei_Lesson {
 	/**
 	 * Filter the classes for lessons on the single course page.
 	 *
-	 * Adds the necessary classes depending on the user data
+	 * Adds the nesecary classes depending on the user data
 	 *
 	 * @since 1.9.0
 	 * @param array $classes
@@ -3790,7 +3777,7 @@ class Sensei_Lesson {
 				} // End If Statement
 			} // End If Statement
 
-			$is_user_taking_course = Sensei_Course::is_user_enrolled( $course_id );
+			$is_user_taking_course = Sensei_Utils::user_started_course( $course_id, get_current_user_id() );
 			if ( Sensei_Utils::is_preview_lesson( get_the_ID() ) && ! $is_user_taking_course ) {
 
 				$lesson_classes[] = 'lesson-preview';
@@ -3816,7 +3803,7 @@ class Sensei_Lesson {
 
 		$loop_lesson_number    = $wp_query->current_post + 1;
 		$course_id             = Sensei()->lesson->get_course_id( $lesson_id );
-		$is_user_taking_course = Sensei_Course::is_user_enrolled( $course_id );
+		$is_user_taking_course = Sensei_Utils::user_started_course( $course_id, get_current_user_id() );
 
 		// Get Lesson data
 		$complexity_array = Sensei()->lesson->lesson_complexities();
@@ -3999,7 +3986,7 @@ class Sensei_Lesson {
 		}
 
 		$lesson_course_id   = get_post_meta( $lesson_id, '_lesson_course', true );
-		$user_taking_course = Sensei_Course::is_user_enrolled( $lesson_course_id, $user_id );
+		$user_taking_course = Sensei_Utils::user_started_course( $lesson_course_id, $user_id );
 		if ( ! $user_taking_course || ! sensei_can_user_view_lesson( $lesson_id, $user_id ) ) {
 			return;
 		}
@@ -4054,11 +4041,23 @@ class Sensei_Lesson {
 	 * Show the user not taking course message if it is the case
 	 *
 	 * @since 1.9.0
-	 * @deprecated 3.0.0
 	 */
 	public static function user_not_taking_course_message() {
 
-		_deprecated_function( __METHOD__, '3.0.0' );
+		$lesson_id = get_the_ID();
+
+		if ( 'lesson' != get_post_type( $lesson_id ) ) {
+			return;
+		}
+
+		$is_preview             = Sensei_Utils::is_preview_lesson( $lesson_id );
+		$pre_requisite_complete = self::is_prerequisite_complete( $lesson_id, get_current_user_id() );
+		$lesson_course_id       = get_post_meta( $lesson_id, '_lesson_course', true );
+		$user_taking_course     = Sensei_Utils::user_started_course( $lesson_course_id, get_current_user_id() );
+
+		if ( $pre_requisite_complete && $is_preview && ! $user_taking_course ) {
+
+		}// end if
 
 	} // end user_not_taking_course_message
 
@@ -4077,7 +4076,7 @@ class Sensei_Lesson {
 			return;
 		}
 
-		$show_course_signup_notice = sensei_is_login_required() && ! Sensei_Course::is_user_enrolled( $course_id );
+		$show_course_signup_notice = sensei_is_login_required() && ! Sensei_Utils::user_started_course( $course_id, get_current_user_id() );
 
 		/**
 		 * Filter for if we should show the course sign up notice on the lesson page.
@@ -4147,6 +4146,18 @@ class Sensei_Lesson {
 	}
 
 	/**
+	 * Deprecate the sensei_lesson_archive_header hook but keep it
+	 * active for backwards compatibility.
+	 *
+	 * @deprecated since 1.9.0
+	 */
+	public static function deprecate_sensei_lesson_archive_header_hook() {
+
+		sensei_do_deprecated_action( 'sensei_lesson_archive_header', '1.9.0', 'sensei_loop_lesson_inside_before' );
+
+	}
+
+	/**
 	 * Outputs the the lesson archive header.
 	 *
 	 * @since  1.9.0
@@ -4189,7 +4200,7 @@ class Sensei_Lesson {
 		$course_id  = get_post_meta( $post->ID, '_lesson_course', true );
 		$is_preview = isset( $post->ID )
 			&& Sensei_Utils::is_preview_lesson( $post->ID )
-			&& ! Sensei_Course::is_user_enrolled( $course_id, $current_user->ID );
+			&& ! Sensei_Utils::user_started_course( $course_id, $current_user->ID );
 
 		?>
 		<header class="lesson-title">
@@ -4306,9 +4317,15 @@ class Sensei_Lesson {
 	 * @since 1.9.0
 	 */
 	public static function output_comments() {
-		$allow_comments        = Sensei()->settings->settings['lesson_comments'];
-		$user_can_view_lesson  = sensei_can_user_view_lesson();
-		$lesson_allow_comments = $allow_comments && $user_can_view_lesson;
+		global $post;
+
+		$course_id          = Sensei()->lesson->get_course_id( get_the_ID() );
+		$allow_comments     = Sensei()->settings->settings['lesson_comments'];
+		$user_taking_course = Sensei_Utils::user_started_course( $course_id );
+		$has_access         = ! Sensei()->settings->get( 'access_permission' );
+		$is_preview         = Sensei_Utils::is_preview_lesson( $post->ID );
+
+		$lesson_allow_comments = $allow_comments && ( $user_taking_course || $has_access || $is_preview );
 
 		if ( $lesson_allow_comments || is_singular( 'sensei_message' ) ) {
 			comments_template( '', true );
@@ -4332,7 +4349,7 @@ class Sensei_Lesson {
 		$has_user_completed_lesson = Sensei_Utils::user_completed_lesson( intval( $lesson_id ), $user_id );
 
 		if ( $quiz_id && is_user_logged_in()
-			&& Sensei_Course::is_user_enrolled( $lesson_course_id, $user_id ) ) {
+			&& Sensei_Utils::user_started_course( $lesson_course_id, $user_id ) ) {
 			$has_quiz_questions = self::lesson_quiz_has_questions( $lesson_id );
 
 			// Display lesson quiz status message

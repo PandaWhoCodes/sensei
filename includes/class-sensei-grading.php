@@ -703,11 +703,7 @@ class Sensei_Grading {
 				do_action( 'sensei_user_lesson_end', $user_id, $quiz_lesson_id );
 
 			} // end if in_array
-		} else {
-			// Set to ungraded status if only a partial grading was saved.
-			Sensei_Utils::update_lesson_status( $user_id, $quiz_lesson_id, 'ungraded' );
-
-		} // end if $_POST['all_que...
+		}// end if $_POST['all_que...
 
 		if ( isset( $_POST['sensei_grade_next_learner'] ) && strlen( $_POST['sensei_grade_next_learner'] ) > 0 ) {
 
@@ -971,7 +967,9 @@ class Sensei_Grading {
 
 			$right_answer = (array) get_post_meta( $question_id, '_question_right_answer', true );
 
-			$answer = wp_unslash( $answer );
+			if ( 0 == get_magic_quotes_gpc() ) {
+				$answer = wp_unslash( $answer );
+			}
 			$answer = (array) $answer;
 			if ( is_array( $right_answer ) && count( $right_answer ) == count( $answer ) ) {
 				// Loop through all answers ensure none are 'missing'
@@ -1024,7 +1022,9 @@ class Sensei_Grading {
 		$right_answer  = get_post_meta( $question_id, '_question_right_answer', true );
 		$gapfill_array = explode( '||', $right_answer );
 
-		$user_answer = wp_unslash( $user_answer );
+		if ( 0 == get_magic_quotes_gpc() ) { // deprecated from PHP 5.4 but we still support PHP 5.2
+			$user_answer = wp_unslash( $user_answer );
+		}
 
 		/**
 		 * case sensitive grading filter

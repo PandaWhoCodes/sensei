@@ -66,7 +66,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 					 */
 					the_excerpt();
 					?>
-
+				<?php 
+					echo '<h3><a href="'.esc_url( get_permalink( $lesson_id )).'">Read more</a></h3>';
+				?>
 				</section>
 
 				<?php

@@ -180,15 +180,6 @@ class Sensei_Updates {
 				),
 				'manual' => array(),
 			),
-			'3.0.0' => array(
-				'manual' => array(
-					'recalculate_enrolment' => array(
-						'title'    => __( 'Recalculate enrollment', 'sensei-lms' ),
-						'desc'     => __( 'Invalidate the cached enrollment and trigger recalculation for all users and courses.', 'sensei-lms' ),
-						'multiple' => true,
-					),
-				),
-			),
 		);
 
 		$this->version = get_option( 'sensei-version' );
@@ -499,14 +490,14 @@ class Sensei_Updates {
 												   id="update-sensei"
 												   class="button
 												   <?php
-													if ( ! $update_run || ! empty( $data['multiple'] ) ) {
+													if ( ! $update_run ) {
 														echo ' button-primary'; }
 													?>
 													"
 												   type="submit"
 												   value="
 												   <?php
-													if ( $update_run && empty( $data['multiple'] ) ) {
+													if ( $update_run ) {
 														esc_html_e( 'Re-run Update', 'sensei-lms' );
 													} else {
 														esc_html_e( 'Run Update', 'sensei-lms' ); }
@@ -1097,7 +1088,6 @@ class Sensei_Updates {
 			'status' => 'approve',
 		);
 
-		$post_ids   = [];
 		$activities = get_comments( $args );
 
 		foreach ( $activities as $activity ) {
@@ -1115,13 +1105,7 @@ class Sensei_Updates {
 
 			if ( ! $user_exists ) {
 				wp_delete_comment( intval( $activity->comment_ID ), true );
-
-				$post_ids[] = $activity->comment_post_ID;
 			}
-		}
-
-		foreach ( array_unique( $post_ids ) as $post_id ) {
-			Sensei()->flush_comment_counts_cache( $post_id );
 		}
 
 		$total_activities = count( $activity_count );
@@ -2124,19 +2108,6 @@ class Sensei_Updates {
 
 	}//end enhance_teacher_role()
 
-	/**
-	 * Invalidates the calculated/cached enrolment to trigger Sensei to recalculate enrolment
-	 * for all learners and classes.
-	 *
-	 * @access private
-	 * @since 3.0.0
-	 */
-	public function recalculate_enrolment() {
-		$enrolment_manager = Sensei_Course_Enrolment_Manager::instance();
-		$enrolment_manager->reset_site_salt();
-
-		return true;
-	}
 } // End Class
 
 /**
