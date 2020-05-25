@@ -65,7 +65,7 @@ class Sensei_Usage_Tracking extends Sensei_Usage_Tracking_Base {
 		return Sensei()->settings->get( self::SENSEI_SETTING_NAME ) || false;
 	}
 
-	protected function set_tracking_enabled( $enable ) {
+	public function set_tracking_enabled( $enable ) {
 		Sensei()->settings->set( self::SENSEI_SETTING_NAME, $enable );
 
 		// Refresh settings in-memory so we get the right value.
@@ -196,5 +196,18 @@ class Sensei_Usage_Tracking extends Sensei_Usage_Tracking_Base {
 				return 'data-import';
 			}
 		);
+	}
+
+	/**
+	 * Collect system data to track.
+	 *
+	 * @return array
+	 */
+	public function get_system_data() {
+		$system_data                 = [];
+		$system_data['version']      = Sensei()->version;
+		$system_data['wcpc_version'] = defined( 'SENSEI_WC_PAID_COURSES_VERSION' ) ? SENSEI_WC_PAID_COURSES_VERSION : null;
+
+		return array_merge( $system_data, parent::get_system_data() );
 	}
 }

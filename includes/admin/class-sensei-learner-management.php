@@ -146,15 +146,13 @@ class Sensei_Learner_Management {
 	 * @since 1.6.0
 	 */
 	public function enqueue_scripts() {
-		$is_debug = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG;
-		$suffix   = $is_debug ? '' : '.min';
 
 		// Load Learners JS.
-		wp_enqueue_script(
+
+		Sensei()->assets->enqueue(
 			'sensei-learners-general',
-			Sensei()->plugin_url . 'assets/js/learners-general' . $suffix . '.js',
-			array( 'jquery', 'jquery-ui-core', 'jquery-ui-datepicker', 'jquery-ui-tooltip', 'sensei-core-select2' ),
-			Sensei()->version,
+			'js/learners-general.js',
+			[ 'jquery', 'jquery-ui-core', 'jquery-ui-datepicker', 'jquery-ui-tooltip', 'sensei-core-select2' ],
 			true
 		);
 
@@ -193,7 +191,7 @@ class Sensei_Learner_Management {
 	 */
 	public function enqueue_styles() {
 
-		wp_enqueue_style( 'sensei-jquery-ui', Sensei()->plugin_url . 'assets/css/jquery-ui.css', '', Sensei()->version );
+		Sensei()->assets->enqueue( 'sensei-jquery-ui', 'css/jquery-ui.css' );
 
 	} // End enqueue_styles()
 
@@ -569,9 +567,9 @@ class Sensei_Learner_Management {
 
 		$result = false;
 		if ( 'withdraw' === $learner_action ) {
-			$result = $manual_enrolment_provider->withdraw_student( $user_id, $course_id );
+			$result = $manual_enrolment_provider->withdraw_learner( $user_id, $course_id );
 		} elseif ( 'enrol' === $learner_action ) {
-			$result = $manual_enrolment_provider->enrol_student( $user_id, $course_id );
+			$result = $manual_enrolment_provider->enrol_learner( $user_id, $course_id );
 		}
 
 		if ( ! $result ) {
@@ -689,7 +687,7 @@ class Sensei_Learner_Management {
 			$result = false;
 
 			if ( $manual_enrolment_provider instanceof Sensei_Course_Manual_Enrolment_Provider ) {
-				$result = $manual_enrolment_provider->enrol_student( $user_id, $course_id );
+				$result = $manual_enrolment_provider->enrol_learner( $user_id, $course_id );
 			}
 
 			switch ( $post_type ) {

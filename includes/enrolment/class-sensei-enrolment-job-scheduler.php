@@ -49,32 +49,73 @@ class Sensei_Enrolment_Job_Scheduler {
 		add_filter( 'sensei_background_job_actions', [ $this, 'get_background_jobs' ] );
 
 		add_action( Sensei_Enrolment_Learner_Calculation_Job::NAME, [ $this, 'run_learner_calculation' ] );
-
-		// Handle job that ensures a course's enrolment is up-to-date.
 		add_action( Sensei_Enrolment_Course_Calculation_Job::NAME, [ $this, 'run_course_calculation' ] );
+	}
 
+	/**
+	 * Check if an enrolment background job is enabled.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $enrolment_job_name Job handler name.
+	 *
+	 * @return bool
+	 */
+	public function is_background_job_enabled( $enrolment_job_name ) {
+		/**
+		 * Check if a specific enrolment background job is enabled.
+		 *
+		 * @since 3.1.0
+		 *
+		 * @param bool   $is_job_enabled     True if the job is enabled.
+		 * @param string $enrolment_job_name Name of the job.
+		 */
+		return apply_filters( 'sensei_is_enrolment_background_job_enabled', true, $enrolment_job_name );
 	}
 
 	/**
 	 * Start a job to recalculate enrolments for a course.
 	 *
-	 * @param int  $course_id        Course post ID.
-	 * @param bool $invalidated_only Recalculate just the results that have been invalidated (set to an empty string).
-	 * @param int  $batch_size       Batch size for the job. Null will use default batch size set by job handler.
+	 * @param int $course_id Course post ID.
 	 *
-	 * @return Sensei_Enrolment_Course_Calculation_Job Job object.
+	 * @return Sensei_Enrolment_Course_Calculation_Job|null Job object.
 	 */
-	public function start_course_calculation_job( $course_id, $invalidated_only, $batch_size = null ) {
+	public function start_course_calculation_job( $course_id ) {
+		if ( ! $this->is_background_job_enabled( Sensei_Enrolment_Course_Calculation_Job::NAME ) ) {
+			return null;
+		}
+
 		$args = [
-			'course_id'        => $course_id,
-			'invalidated_only' => $invalidated_only,
-			'batch_size'       => $batch_size,
+			'course_id' => $course_id,
 		];
 
+		// Make sure any previous job for this course is stopped.
+		$this->cancel_course_calculation_job( $course_id );
+
 		$job = new Sensei_Enrolment_Course_Calculation_Job( $args );
+		$job->setup();
+
 		Sensei_Scheduler::instance()->schedule_job( $job );
 
 		return $job;
+	}
+
+	/**
+	 * Cancel any current course calculation job.
+	 *
+	 * @param int $course_id Course post ID.
+	 */
+	private function cancel_course_calculation_job( $course_id ) {
+		$args = [
+			'course_id' => $course_id,
+		];
+		$job  = new Sensei_Enrolment_Course_Calculation_Job( $args );
+
+		// If we are able to resume a current job, cancel it.
+		if ( $job->resume() ) {
+			$job->end();
+			Sensei_Scheduler::instance()->cancel_scheduled_job( $job );
+		}
 	}
 
 	/**
@@ -83,13 +124,24 @@ class Sensei_Enrolment_Job_Scheduler {
 	 * @access private
 	 */
 	public function maybe_start_learner_calculation() {
-		$enrolment_manager = Sensei_Course_Enrolment_Manager::instance();
-
-		if ( get_option( self::CALCULATION_VERSION_OPTION_NAME ) === $enrolment_manager->get_enrolment_calculation_version() ) {
+		if ( ! $this->is_background_job_enabled( Sensei_Enrolment_Learner_Calculation_Job::NAME ) ) {
 			return;
 		}
 
-		$job = new Sensei_Enrolment_Learner_Calculation_Job( 20 );
+		$enrolment_manager = Sensei_Course_Enrolment_Manager::instance();
+		$current_version   = $enrolment_manager->get_enrolment_calculation_version();
+
+		if ( get_option( self::CALCULATION_VERSION_OPTION_NAME ) === $current_version ) {
+			return;
+		}
+
+		$job = new Sensei_Enrolment_Learner_Calculation_Job();
+
+		// If we aren't running for this version, restart the job.
+		if ( ! $job->is_calculating_version( $current_version ) ) {
+			$job->setup( $current_version );
+		}
+
 		Sensei_Scheduler::instance()->schedule_job( $job );
 	}
 
@@ -99,7 +151,11 @@ class Sensei_Enrolment_Job_Scheduler {
 	 * @access private
 	 */
 	public function run_learner_calculation() {
-		$job                 = new Sensei_Enrolment_Learner_Calculation_Job( 20 );
+		if ( ! $this->is_background_job_enabled( Sensei_Enrolment_Learner_Calculation_Job::NAME ) ) {
+			return;
+		}
+
+		$job                 = new Sensei_Enrolment_Learner_Calculation_Job();
 		$completion_callback = function() {
 			$enrolment_manager = Sensei_Course_Enrolment_Manager::instance();
 
@@ -120,6 +176,10 @@ class Sensei_Enrolment_Job_Scheduler {
 	 * @param array $args Arguments for the job.
 	 */
 	public function run_course_calculation( $args ) {
+		if ( ! $this->is_background_job_enabled( Sensei_Enrolment_Course_Calculation_Job::NAME ) ) {
+			return;
+		}
+
 		$job = new Sensei_Enrolment_Course_Calculation_Job( $args );
 		Sensei_Scheduler::instance()->run( $job );
 	}

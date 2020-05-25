@@ -138,11 +138,8 @@ class Sensei_Course {
 	public function register_admin_scripts() {
 		$screen = get_current_screen();
 
-		// Allow developers to load non-minified versions of scripts.
-		$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-
 		if ( 'course' === $screen->id ) {
-			wp_enqueue_script( 'sensei-admin-course-edit', Sensei()->plugin_url . 'assets/js/admin/course-edit' . $suffix . '.js', array( 'jquery', 'sensei-core-select2' ), Sensei()->version, true );
+			Sensei()->assets->enqueue( 'sensei-admin-course-edit', 'js/admin/course-edit.js', [ 'jquery', 'sensei-core-select2' ], true );
 		}
 	}
 
@@ -205,12 +202,13 @@ class Sensei_Course {
 		/**
 		 * Filters if a visitor can view course content.
 		 *
-		 * @since 3.0.0.
+		 * @since 3.0.0
+		 * @hook sensei_can_access_course_content
 		 *
-		 * @param bool   $can_view_course_content True if they can view the course content.
-		 * @param int    $course_id               Course post ID.
-		 * @param int    $user_id                 User ID if user is logged in.
-		 * @param string $context                 Context that we're checking for course content
+		 * @param {bool}   $can_view_course_content True if they can view the course content.
+		 * @param {int}    $course_id               Course post ID.
+		 * @param {int}    $user_id                 User ID if user is logged in.
+		 * @param {string} $context                 Context that we're checking for course content
 		 *                                        access (`lesson`, `quiz`, or `module`).
 		 */
 		return apply_filters( 'sensei_can_access_course_content', $can_view_course_content, $course_id, $user_id, $context );
@@ -2806,7 +2804,7 @@ class Sensei_Course {
 		?>
 
 			<header>
-				<h2 style="font-size: 2.3em;">
+				<h2>
 					<?php echo esc_html( $title ); ?>
 				</h2>
 			</header>
@@ -3159,7 +3157,7 @@ class Sensei_Course {
 		?>
 		<header>
 
-			<h1 style="font-size: 2.7em;">
+			<h1>
 
 				<?php
 				/**

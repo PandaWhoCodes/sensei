@@ -135,17 +135,15 @@ class Sensei_Frontend {
 
 		if ( ! $disable_js ) {
 
-			$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-
 			// Course Archive javascript.
 			if ( is_post_type_archive( 'course' ) ) {
 
-				wp_register_script( 'sensei-course-archive-js', esc_url( Sensei()->plugin_url . 'assets/js/frontend/course-archive' . $suffix . '.js' ), array( 'jquery' ), '1', true );
+				Sensei()->assets->register( 'sensei-course-archive-js', 'js/frontend/course-archive.js', [ 'jquery' ], true );
 				wp_enqueue_script( 'sensei-course-archive-js' );
 
 			}
 
-			wp_register_script( Sensei()->token . '-user-dashboard', esc_url( Sensei()->plugin_url . 'assets/js/user-dashboard' . $suffix . '.js' ), array( 'jquery-ui-tabs' ), Sensei()->version, true );
+			Sensei()->assets->register( Sensei()->token . '-user-dashboard', 'js/user-dashboard.js', [ 'jquery-ui-tabs' ], true );
 
 			// Allow additional scripts to be loaded.
 			do_action( 'sensei_additional_scripts' );
@@ -166,8 +164,7 @@ class Sensei_Frontend {
 
 		if ( ! $disable_styles ) {
 
-			wp_register_style( Sensei()->token . '-frontend', Sensei()->plugin_url . 'assets/css/frontend/sensei.css', '', Sensei()->version, 'screen' );
-			wp_enqueue_style( Sensei()->token . '-frontend' );
+			Sensei()->assets->enqueue( Sensei()->token . '-frontend', 'css/frontend/sensei.css', [], 'screen' );
 
 			// Allow additional stylesheets to be loaded.
 			do_action( 'sensei_additional_styles' );
@@ -942,15 +939,11 @@ class Sensei_Frontend {
 
 				<input type="hidden" name="quiz_action" value="lesson-complete" />
 
-				<!-- 				<input type="submit"
-									   name="quiz_complete"
-									   class="quiz-submit complete"
-									   value="<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>"/> -->
+				<input type="submit"
+					   name="quiz_complete"
+					   class="quiz-submit complete"
+					   value="<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>"/>
 
-								  <div class="fieldset">
-				        <input type ="checkbox" id="that" class="check" name="quiz_complete" value = "<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>" onChange="this.form.submit()"/>
-				    <label for="that" style="font-size: 2rem;">Mark Lesson as complete</label>
-				  </div>
 			</form>
 			<?php
 		} // End If Statement
@@ -1269,11 +1262,11 @@ class Sensei_Frontend {
 			 * @param int      $user_id          User ID.
 			 * @param int      $course_id        Course post ID.
 			 */
-			$student_enrollment_handler = apply_filters( 'sensei_frontend_student_enrolment_handler', [ $this, 'manually_enrol_learner' ], $current_user->ID, $post->ID );
+			$learner_enrollment_handler = apply_filters( 'sensei_frontend_learner_enrolment_handler', [ $this, 'manually_enrol_learner' ], $current_user->ID, $post->ID );
 
 			$student_enrolled = false;
-			if ( is_callable( $student_enrollment_handler ) ) {
-				$student_enrolled = call_user_func( $student_enrollment_handler, $current_user->ID, $post->ID );
+			if ( is_callable( $learner_enrollment_handler ) ) {
+				$student_enrolled = call_user_func( $learner_enrollment_handler, $current_user->ID, $post->ID );
 			}
 
 			$this->data                        = new stdClass();
@@ -1318,7 +1311,7 @@ class Sensei_Frontend {
 		$enrolment_manager = Sensei_Course_Enrolment_Manager::instance();
 		$manual_enrolment  = $enrolment_manager->get_manual_enrolment_provider();
 
-		return $manual_enrolment && $manual_enrolment->enrol_student( $user_id, $course_id );
+		return $manual_enrolment && $manual_enrolment->enrol_learner( $user_id, $course_id );
 	}
 
 	/**

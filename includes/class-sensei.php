@@ -55,6 +55,13 @@ class Sensei_Main {
 	public $settings;
 
 	/**
+	 * Script and stylesheet loading.
+	 *
+	 * @var Sensei_Assets
+	 */
+	public $assets;
+
+	/**
 	 * @var Sensei_Course_Results
 	 */
 	public $course_results;
@@ -152,11 +159,18 @@ class Sensei_Main {
 	public $rest_api;
 
 	/**
+	 * Internal REST API.
+	 *
+	 * @var Sensei_REST_API_Internal
+	 */
+	public $rest_api_internal;
+
+	/**
 	 * Global Usage Tracking object.
 	 *
 	 * @var Sensei_Usage_Tracking
 	 */
-	private $usage_tracking;
+	public $usage_tracking;
 
 	/**
 	 * @var $id
@@ -174,6 +188,8 @@ class Sensei_Main {
 	public $view_helper;
 
 	/**
+	 * Experimental features.
+	 *
 	 * @var Sensei_Feature_Flags
 	 */
 	public $feature_flags;
@@ -184,6 +200,13 @@ class Sensei_Main {
 	 * @var Sensei_Enrolment_Job_Scheduler
 	 */
 	private $enrolment_scheduler;
+
+	/**
+	 * Onboarding wizard.
+	 *
+	 * @var Sensei_Onboarding
+	 */
+	public $onboarding;
 
 	/**
 	 * Constructor method.
@@ -232,26 +255,16 @@ class Sensei_Main {
 
 		$this->initialize_global_objects();
 
-		$this->maybe_init_email_signup_modal();
-	}
-
-	/**
-	 * Load the email signup modal if we haven't already.
-	 */
-	private function maybe_init_email_signup_modal() {
-		if ( get_option( 'sensei_show_email_signup_form', false ) ) {
-			add_action( 'admin_init', array( $this, 'load_email_signup_modal' ) );
-		}
 	}
 
 	/**
 	 * Load the email signup modal form.
 	 *
-	 * @access private
+	 * @deprecated 3.1.0 The modal was removed.
+	 * @access     private
 	 */
 	public function load_email_signup_modal() {
-		Sensei_Email_Signup_Form::instance()->init();
-		delete_option( 'sensei_show_email_signup_form' );
+		_deprecated_function( __METHOD__, '3.1.0' );
 	}
 
 	/**
@@ -321,8 +334,11 @@ class Sensei_Main {
 	 * @since 1.9.0
 	 */
 	public function initialize_global_objects() {
-		// Setup settings
+		// Setup settings.
 		$this->settings = new Sensei_Settings();
+
+		// Asset loading.
+		$this->assets = new Sensei_Assets( $this->plugin_url, $this->plugin_path, $this->version );
 
 		// feature flags
 		$this->feature_flags = new Sensei_Feature_Flags();
@@ -378,6 +394,9 @@ class Sensei_Main {
 		$this->enrolment_scheduler = Sensei_Enrolment_Job_Scheduler::instance();
 		$this->enrolment_scheduler->init();
 
+		// Onboarding Wizard.
+		$this->onboarding = Sensei_Onboarding::instance();
+
 		// Differentiate between administration and frontend logic.
 		if ( is_admin() ) {
 			// Load Admin Class
@@ -415,6 +434,8 @@ class Sensei_Main {
 		$this->Sensei_WPML = new Sensei_WPML();
 
 		$this->rest_api = new Sensei_REST_API_V1();
+
+		$this->rest_api_internal = new Sensei_REST_API_Internal();
 	}
 
 	/**
@@ -603,7 +624,7 @@ class Sensei_Main {
 			// If the version is known and the previous version was pre-3.0.0.
 			(
 				$is_upgrade
-				&& version_compare( '3.0.0-beta.2', $current_version, '>' )
+				&& version_compare( '3.0.0', $current_version, '>' )
 			)
 
 			// If there wasn't a current version set and this isn't a new install, double check to make sure there wasn't any enrolment.
@@ -661,10 +682,11 @@ class Sensei_Main {
 	public function activate_sensei() {
 
 		if ( false === get_option( 'sensei_installed', false ) ) {
-			update_option( 'sensei_show_email_signup_form', true );
+			set_transient( 'sensei_activation_redirect', 1, 30 );
+
+			update_option( Sensei_Onboarding::SUGGEST_SETUP_WIZARD_OPTION, 1 );
 		}
 
-		update_option( 'skip_install_sensei_pages', 0 );
 		update_option( 'sensei_installed', 1 );
 
 	} // End activate_sensei()

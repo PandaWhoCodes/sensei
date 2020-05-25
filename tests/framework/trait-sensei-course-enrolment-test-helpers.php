@@ -46,7 +46,7 @@ trait Sensei_Course_Enrolment_Test_Helpers {
 		$course_enrolment_instances->setAccessible( true );
 		$course_enrolment_instances->setValue( [] );
 
-		Sensei_Course_Enrolment::set_store_negative_enrolment_results( true );
+		remove_all_filters( 'sensei_course_enrolment_store_results' );
 	}
 
 	/**
@@ -54,6 +54,15 @@ trait Sensei_Course_Enrolment_Test_Helpers {
 	 */
 	private static function resetEnrolmentStateStores() {
 		$state_store_instances = new ReflectionProperty( Sensei_Enrolment_Provider_State_Store::class, 'instances' );
+		$state_store_instances->setAccessible( true );
+		$state_store_instances->setValue( [] );
+	}
+
+	/**
+	 * Resets the journal stores.
+	 */
+	private static function resetEnrolmentJournalStores() {
+		$state_store_instances = new ReflectionProperty( Sensei_Enrolment_Provider_Journal_Store::class, 'instances' );
 		$state_store_instances->setAccessible( true );
 		$state_store_instances->setValue( [] );
 	}

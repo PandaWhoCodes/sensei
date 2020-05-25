@@ -38,13 +38,6 @@ class Sensei_Course_Enrolment {
 	private static $instances = [];
 
 	/**
-	 * Option for whether negative enrolment results should be stored.
-	 *
-	 * @var bool
-	 */
-	private static $store_negative_enrolment_results = true;
-
-	/**
 	 * Enrolment providers handling this particular course.
 	 *
 	 * @var Sensei_Course_Enrolment_Provider_Interface[]
@@ -100,6 +93,10 @@ class Sensei_Course_Enrolment {
 	 * @return bool
 	 */
 	public function is_enrolled( $user_id, $check_cache = true ) {
+		if ( ! $user_id ) {
+			return false;
+		}
+
 		/**
 		 * Allow complete side-stepping of enrolment handling in Sensei.
 		 *
@@ -150,24 +147,16 @@ class Sensei_Course_Enrolment {
 	/**
 	 * Marks all enrolment results as invalid for a course and enqueues an async job to recalculate.
 	 *
-	 * @param bool $enrolled_learners_only
+	 * This will still cause a delay when users visit My Courses or another page that relies on the term.
+	 * We aren't invalidating the entire user for this.
 	 *
-	 * @return Sensei_Enrolment_Course_Calculation_Job
+	 * @return Sensei_Enrolment_Course_Calculation_Job|null
 	 */
-	public function recalculate_enrolment( $enrolled_learners_only ) {
-		$invalidated_only = false;
-
-		// If we just invalidated current learners, we only have to recalculate for those invalidated results.
-		if ( $enrolled_learners_only ) {
-			$invalidated_only = true;
-			$this->invalidate_enrolled_learner_results();
-		} else {
-			$this->invalidate_all_learner_results();
-		}
-
+	public function recalculate_enrolment() {
+		$this->reset_course_enrolment_salt();
 		$job_scheduler = Sensei_Enrolment_Job_Scheduler::instance();
 
-		return $job_scheduler->start_course_calculation_job( $this->course_id, $invalidated_only );
+		return $job_scheduler->start_course_calculation_job( $this->course_id );
 	}
 
 	/**
@@ -180,39 +169,6 @@ class Sensei_Course_Enrolment {
 	 */
 	public function invalidate_learner_result( $user_id ) {
 		update_user_meta( $user_id, $this->get_enrolment_results_meta_key(), '' );
-	}
-
-	/**
-	 * Bulk invalidate all learner results for enrolled users in a course.
-	 */
-	private function invalidate_enrolled_learner_results() {
-		$enrolled_user_ids = $this->get_enrolled_user_ids();
-		foreach ( $enrolled_user_ids as $user_id ) {
-			$this->invalidate_learner_result( $user_id );
-		}
-	}
-
-	/**
-	 * Bulk invalidate all learner results for all users.
-	 *
-	 * This could still cause a delay when users visit My Courses or another page that relies on the term.
-	 * We aren't invalidating the entire user for this.
-	 *
-	 * Since we're doing a direct database edit here, we combine this with a salt reset to invalidate cached results.
-	 */
-	private function invalidate_all_learner_results() {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Infrequent query that is much faster than alternatives.
-		$invalidated_data = [ 'meta_value' => '' ];
-
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Infrequent query that is much faster than alternatives.
-		$where = [ 'meta_key' => $this->get_enrolment_results_meta_key() ];
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Caching is invalidated by a reset of the course salt below.
-		$wpdb->update( $wpdb->usermeta, $invalidated_data, $where );
-
-		$this->reset_course_enrolment_salt();
 	}
 
 	/**
@@ -259,18 +215,40 @@ class Sensei_Course_Enrolment {
 	 */
 	public function save_enrolment( $user_id, $is_enrolled ) {
 		$term = Sensei_Learner::get_learner_term( $user_id );
-		if ( ! $is_enrolled ) {
-			$result = wp_remove_object_terms( $this->course_id, [ intval( $term->term_id ) ], Sensei_PostTypes::LEARNER_TAXONOMY_NAME );
 
-			return true === $result;
+		$is_enrolled_current = has_term( $term->term_id, Sensei_PostTypes::LEARNER_TAXONOMY_NAME, $this->course_id );
+
+		// Nothing has changed.
+		if ( $is_enrolled_current === $is_enrolled ) {
+			return true;
 		}
 
-		// If they are enrolled, make sure they have started the course.
-		Sensei_Utils::user_start_course( $user_id, $this->course_id );
+		if ( ! $is_enrolled ) {
+			$result = true === wp_remove_object_terms( $this->course_id, [ intval( $term->term_id ) ], Sensei_PostTypes::LEARNER_TAXONOMY_NAME );
+		} else {
+			// If they are enrolled, make sure they have started the course.
+			Sensei_Utils::user_start_course( $user_id, $this->course_id );
 
-		$result = wp_set_post_terms( $this->course_id, [ intval( $term->term_id ) ], Sensei_PostTypes::LEARNER_TAXONOMY_NAME, true );
+			$save_result = wp_set_post_terms( $this->course_id, [ intval( $term->term_id ) ], Sensei_PostTypes::LEARNER_TAXONOMY_NAME, true );
+			$result      = is_array( $save_result ) && ! empty( $save_result );
+		}
 
-		return is_array( $result ) && ! empty( $result );
+		if ( ! $result ) {
+			return false;
+		}
+
+		/**
+		 * Fire action when course enrolment status changes.
+		 *
+		 * @since 3.0.0
+		 *
+		 * @param int  $user_id     User ID.
+		 * @param int  $course_id   Course post ID.
+		 * @param bool $is_enrolled New enrolment status.
+		 */
+		do_action( 'sensei_course_enrolment_status_changed', $user_id, $this->course_id, $is_enrolled );
+
+		return true;
 	}
 
 	/**
@@ -311,6 +289,12 @@ class Sensei_Course_Enrolment {
 
 		$this->store_enrolment_results( $user_id, $enrolment_results );
 
+		Sensei_Enrolment_Provider_Journal_Store::register_possible_enrolment_change(
+			$enrolment_results,
+			$user_id,
+			$this->course_id
+		);
+
 		/**
 		 * Notify upon calculation of enrolment results.
 		 *
@@ -335,20 +319,18 @@ class Sensei_Course_Enrolment {
 		$results_meta_key   = $this->get_enrolment_results_meta_key();
 		$had_existing_value = ! empty( get_user_meta( $user_id, $results_meta_key, true ) );
 
-		// We're probably in a background request and we haven't already stored results.
-		$store_results = self::$store_negative_enrolment_results || $had_existing_value || $enrolment_results->is_enrolment_provided();
-
 		/**
 		 * Filter on whether course enrolment results should be stored.
 		 *
 		 * @since 3.0.0
 		 *
-		 * @param bool                                     $store_results     Whether to store the results.
-		 * @param int                                      $course_id         Course post ID.
-		 * @param int                                      $user_id           User ID.
-		 * @param Sensei_Course_Enrolment_Provider_Results $enrolment_results Enrolment results object.
+		 * @param bool                                     $store_results      Whether to store the results.
+		 * @param int                                      $user_id            User ID.
+		 * @param int                                      $course_id          Course post ID.
+		 * @param bool                                     $had_existing_value True if a stale enrolment result is already stored.
+		 * @param Sensei_Course_Enrolment_Provider_Results $enrolment_results  Enrolment results object.
 		 */
-		$store_results = apply_filters( 'sensei_course_enrolment_store_results', $store_results, $user_id, $this->course_id, $enrolment_results );
+		$store_results = apply_filters( 'sensei_course_enrolment_store_results', true, $user_id, $this->course_id, $had_existing_value, $enrolment_results );
 
 		if ( $store_results ) {
 			update_user_meta( $user_id, $results_meta_key, wp_slash( wp_json_encode( $enrolment_results ) ) );
@@ -359,12 +341,29 @@ class Sensei_Course_Enrolment {
 	}
 
 	/**
+	 * Helper to disable storing enrolment results when it isn't already stored and enrolment isn't provided.
+	 *
+	 * @param bool                                     $store_results      Whether to store the results.
+	 * @param int                                      $user_id            User ID.
+	 * @param int                                      $course_id          Course post ID.
+	 * @param bool                                     $had_existing_value True if a stale enrolment result is already stored.
+	 * @param Sensei_Course_Enrolment_Provider_Results $enrolment_results  Enrolment results object.
+	 *
+	 * @return bool
+	 */
+	public static function do_not_store_negative_enrolment_results( $store_results, $user_id, $course_id, $had_existing_value, $enrolment_results ) {
+		return $had_existing_value || $enrolment_results->is_enrolment_provided();
+	}
+
+	/**
 	 * Get the enrolment results meta key.
 	 *
 	 * @return string
 	 */
 	public function get_enrolment_results_meta_key() {
-		return self::META_PREFIX_ENROLMENT_RESULTS . $this->course_id;
+		global $wpdb;
+
+		return $wpdb->get_blog_prefix() . self::META_PREFIX_ENROLMENT_RESULTS . $this->course_id;
 	}
 
 	/**
@@ -377,7 +376,7 @@ class Sensei_Course_Enrolment {
 	 * @throws Exception When learner term could not be created.
 	 */
 	public function get_provider_state( Sensei_Course_Enrolment_Provider_Interface $provider, $user_id ) {
-		return Sensei_Enrolment_Provider_State_Store::get( $user_id, $this->course_id )->get_provider_state( $provider );
+		return Sensei_Enrolment_Provider_State_Store::get( $user_id )->get_provider_state( $provider, $this->course_id );
 	}
 
 	/**
@@ -444,14 +443,5 @@ class Sensei_Course_Enrolment {
 		update_post_meta( $this->course_id, self::META_COURSE_ENROLMENT_VERSION, $new_salt );
 
 		return $new_salt;
-	}
-
-	/**
-	 * Set whether enrolment results user meta should be stored when enrolment is not provided.
-	 *
-	 * @param bool $store_negative_enrolment_results True if we should store negative enrolment results.
-	 */
-	public static function set_store_negative_enrolment_results( $store_negative_enrolment_results ) {
-		self::$store_negative_enrolment_results = $store_negative_enrolment_results;
 	}
 }

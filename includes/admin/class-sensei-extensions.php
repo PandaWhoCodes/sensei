@@ -51,7 +51,7 @@ final class Sensei_Extensions {
 	public function enqueue_admin_assets() {
 		$screen = get_current_screen();
 		if ( in_array( $screen->id, array( 'sensei-lms_page_sensei-extensions' ), true ) ) {
-			wp_enqueue_style( 'sensei-admin-extensions', Sensei()->plugin_url . 'assets/css/extensions.css', '', Sensei()->version, 'screen' );
+			Sensei()->assets->enqueue( 'sensei-admin-extensions', 'css/extensions.css', [], 'screen' );
 		}
 	}
 
@@ -59,12 +59,13 @@ final class Sensei_Extensions {
 	 * Call API to get Sensei extensions.
 	 *
 	 * @since  2.0.0
+	 * @since  3.1.0 The method is public.
 	 *
 	 * @param  string $type      Product type ('plugin' or 'theme').
 	 * @param  string $category  Category to fetch (null = all).
 	 * @return array
 	 */
-	private function get_extensions( $type = null, $category = null ) {
+	public function get_extensions( $type = null, $category = null ) {
 		$extension_request_key = md5( $type . '|' . $category );
 		$extensions            = get_transient( 'sensei_extensions_' . $extension_request_key );
 
@@ -81,7 +82,9 @@ final class Sensei_Extensions {
 				)
 			);
 			if ( ! is_wp_error( $raw_extensions ) ) {
-				$extensions = json_decode( wp_remote_retrieve_body( $raw_extensions ) )->products;
+				$json       = json_decode( wp_remote_retrieve_body( $raw_extensions ) );
+				$extensions = isset( $json->products ) ? $json->products : [];
+
 				set_transient( 'sensei_extensions_' . $extension_request_key, $extensions, DAY_IN_SECONDS );
 			}
 		}
