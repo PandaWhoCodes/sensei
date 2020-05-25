@@ -97,7 +97,7 @@ function sensei_start_course_form( $course_id ) {
 
 				<input type="hidden" name="<?php echo esc_attr( 'woothemes_sensei_start_course_noonce' ); ?>" id="<?php echo esc_attr( 'woothemes_sensei_start_course_noonce' ); ?>" value="<?php echo esc_attr( wp_create_nonce( 'woothemes_sensei_start_course_noonce' ) ); ?>" />
 
-				<span><input name="course_start" type="submit" class="course-start" value="<?php esc_html_e( 'Take This Course', 'sensei-lms' ); ?>"/></span>
+				<span><input name="course_start" type="submit" class="course-start" value="<?php esc_html_e( 'Start taking this Course', 'sensei-lms' ); ?>"/></span>
 
 			</form>
 			<?php
@@ -1171,6 +1171,7 @@ function sensei_the_lesson_excerpt( $lesson_id = '' ) {
 	}
 
 	echo wp_kses_post( Sensei_Lesson::lesson_excerpt( get_post( $lesson_id ), false ) );
+	echo wp_kses_post('<h3><a href="'.esc_url( get_permalink( $lesson_id )).'">Read more</a></h3>');
 
 }//end sensei_the_lesson_excerpt()
 

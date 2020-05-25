@@ -939,11 +939,14 @@ class Sensei_Frontend {
 
 				<input type="hidden" name="quiz_action" value="lesson-complete" />
 
-				<input type="submit"
+				<!-- <input type="submit"
 					   name="quiz_complete"
 					   class="quiz-submit complete"
-					   value="<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>"/>
-
+					   value="<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>"/> -->
+						 <div class="fieldset">
+							 <input type ="checkbox" id="that" class="check" name="quiz_complete" value = "<?php esc_attr_e( 'Complete Lesson', 'sensei-lms' ); ?>" onChange="this.form.submit()"/>
+							 <label for="that" style="font-size: 2rem;">Mark Lesson as complete</label>
+						 </div>
 			</form>
 			<?php
 		} // End If Statement

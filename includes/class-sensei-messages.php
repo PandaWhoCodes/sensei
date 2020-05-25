@@ -254,7 +254,7 @@ class Sensei_Messages {
 					$contact_button_text = __( 'Contact Teacher', 'sensei-lms' );
 				}
 
-				$html .= '<p><a class="button send-message-button" href="' . esc_url( $href ) . '#private_message">' . esc_html( $contact_button_text ) . '</a></p>';
+				// $html .= '<p><a class="button send-message-button" href="' . esc_url( $href ) . '#private_message">' . esc_html( $contact_button_text ) . '</a></p>';
 			}
 
 			if ( isset( $this->message_notice ) && isset( $this->message_notice['type'] ) && isset( $this->message_notice['notice'] ) ) {
